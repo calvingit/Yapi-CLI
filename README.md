@@ -249,3 +249,56 @@ YAPI_LOG_LEVEL=info         # 日志级别：debug, info, warn, error, none
 | 团队共享 | npx + 环境变量        | 配置统一，易于管理 |
 | 开发调试 | 本地安装 + SSE 模式   | 便于调试和修改代码 |
 | 企业部署 | 本地安装 + stdio 模式 | 性能更好，更稳定   |
+
+---
+
+## CLI Harness（命令行工具）
+
+本项目附带一个遵循 [CLI-Anything](https://github.com/HKUDS/CLI-Anything) 规范构建的 Python 命令行工具，可在终端或 AI Agent 脚本中直接调用 YApi 接口，无需启动 MCP 服务器。
+
+### 安装
+
+```bash
+pip install -e ./agent-harness
+```
+
+### 环境变量
+
+```bash
+export YAPI_BASE_URL=https://your-yapi-domain.com
+export YAPI_TOKEN=12:projectAtoken,34:projectBtoken
+```
+
+### 基本用法
+
+```bash
+# 搜索接口（单关键字，跨所有项目）
+cli-anything-yapi api search login
+
+# 获取接口详情
+cli-anything-yapi api get 12 345
+
+# 列出所有项目
+cli-anything-yapi project list
+
+# 列出项目下的分类
+cli-anything-yapi category list 12
+
+# 创建接口
+cli-anything-yapi api save \
+  --project 12 \
+  --cat-id 56 \
+  --title "用户登录" \
+  --path /user/login \
+  --method POST
+
+# 输出机器可读的 JSON（供 AI Agent 消费）
+cli-anything-yapi --json api search login
+
+# 进入交互式 REPL
+cli-anything-yapi
+```
+
+### Skill 文件
+
+安装后，AI 技能定义文件位于 `agent-harness/cli_anything/yapi/skills/SKILL.md`，可被支持 CLI-Anything 技能的 AI 工具（如 Claude Code、OpenClaw 等）自动发现。

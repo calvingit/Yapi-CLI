@@ -35,4 +35,11 @@ coverage
 # OS
 .DS_Store
 Thumbs.db 
-.yapi-cachepackage-lock.json
+.yapi-cache
+package-lock.json
+
+# Python build artifacts
+*.egg-info/
+__pycache__/
+*.py[cod]
+.venv/
