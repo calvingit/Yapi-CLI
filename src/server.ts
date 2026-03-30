@@ -437,6 +437,98 @@ export class YapiMcpServer {
       }
     );
 
+    // 搜索任意内容（单关键字全局搜索）
+    this.server.tool(
+      "yapi_search_anything",
+      "使用单个关键字在YApi中全局搜索接口（同时匹配接口名称、路径、标签）",
+      {
+        query: z.string().describe("搜索关键字，会同时匹配接口名称、路径和标签"),
+        limit: z.number().optional().describe("返回结果数量限制，默认20")
+      },
+      async ({ query, limit }) => {
+        try {
+          this.logger.info(`全局搜索: ${query}`);
+          const searchResults = await this.yapiService.searchAnything(query, { limit: limit || 20 });
+
+          if (searchResults.total === 0) {
+            return {
+              content: [{ type: "text", text: `未找到与 "${query}" 相关的接口` }],
+            };
+          }
+
+          // 按项目分组整理结果
+          const apisByProject: Record<string, {
+            projectName: string,
+            apis: Array<{
+              id: string,
+              title: string,
+              path: string,
+              method: string,
+              catName: string,
+              updateTime: string
+            }>
+          }> = {};
+
+          searchResults.list.forEach(api => {
+            const projectId = String(api.project_id);
+            const projectName = api.project_name || `未知项目(${projectId})`;
+
+            if (!apisByProject[projectId]) {
+              apisByProject[projectId] = { projectName, apis: [] };
+            }
+
+            apisByProject[projectId].apis.push({
+              id: api._id,
+              title: api.title,
+              path: api.path,
+              method: api.method,
+              catName: api.cat_name || '未知分类',
+              updateTime: new Date(api.up_time).toLocaleString()
+            });
+          });
+
+          let responseContent = `共找到 ${searchResults.total} 个与 "${query}" 相关的接口（已限制显示 ${searchResults.list.length} 个）\n\n`;
+
+          Object.values(apisByProject).forEach(projectGroup => {
+            responseContent += `## 项目: ${projectGroup.projectName} (${projectGroup.apis.length}个接口)\n\n`;
+
+            if (projectGroup.apis.length <= 10) {
+              projectGroup.apis.forEach(api => {
+                responseContent += `### ${api.title} (${api.method} ${api.path})\n\n`;
+                responseContent += `- 接口ID: ${api.id}\n`;
+                responseContent += `- 所属分类: ${api.catName}\n`;
+                responseContent += `- 更新时间: ${api.updateTime}\n\n`;
+              });
+            } else {
+              responseContent += "| 接口ID | 接口名称 | 请求方式 | 接口路径 | 所属分类 |\n";
+              responseContent += "| ------ | -------- | -------- | -------- | -------- |\n";
+              projectGroup.apis.forEach(api => {
+                responseContent += `| ${api.id} | ${api.title} | ${api.method} | ${api.path} | ${api.catName} |\n`;
+              });
+              responseContent += "\n";
+            }
+          });
+
+          responseContent += "\n提示: 可以使用 `yapi_get_api_desc` 工具获取接口的详细信息";
+
+          return {
+            content: [{ type: "text", text: responseContent }],
+          };
+        } catch (error) {
+          this.logger.error(`全局搜索时出错:`, error);
+          let errorMsg = "全局搜索时发生错误";
+          if (error instanceof Error) {
+            errorMsg += `: ${error.message}`;
+          } else if (typeof error === 'object' && error !== null) {
+            errorMsg += `: ${JSON.stringify(error)}`;
+          }
+          return {
+            content: [{ type: "text", text: errorMsg }],
+          };
+        }
+      }
+    );
+
     // 列出项目
     this.server.tool(
       "yapi_list_projects",
