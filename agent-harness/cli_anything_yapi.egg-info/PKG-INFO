@@ -1,5 +1,0 @@
-Metadata-Version: 2.1
-Name: cli-anything-yapi
-Version: 0.1.0
-Summary: CLI-Anything harness for YApi — query and manage YApi interfaces from the command line
-Requires-Python: >=3.10

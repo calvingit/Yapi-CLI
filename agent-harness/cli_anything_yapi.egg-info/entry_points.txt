@@ -1,2 +1,0 @@
-[console_scripts]
-cli-anything-yapi = cli_anything.yapi.yapi_cli:cli
