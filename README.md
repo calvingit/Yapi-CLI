@@ -18,7 +18,6 @@ Yapi Auto MCP Server 是一个基于 [Model Context Protocol](https://modelconte
 
 ### 🔍 接口查询和搜索
 
-- **yapi_search_anything**: 使用单个关键字全局搜索接口（同时匹配名称、路径、标签）
 - **yapi_search_apis**: 按名称、路径、标签等条件搜索接口
 - **yapi_get_api_desc**: 获取特定接口的详细信息（请求/响应结构、参数等）
 - **yapi_list_projects**: 列出所有可访问的项目
@@ -114,53 +113,7 @@ Yapi Auto MCP Server 是一个基于 [Model Context Protocol](https://modelconte
 }
 ```
 
-### 方式三：全局安装
-
-全局安装后无需每次从网络下载，启动速度更快，适合长期使用：
-
-1. **全局安装**：
-
-```bash
-npm install -g yapi-auto-mcp
-```
-
-2. **配置 Cursor**：使用已安装的 `yapi-mcp` 命令：
-
-```json
-{
-  "mcpServers": {
-    "yapi-auto-mcp": {
-      "command": "yapi-mcp",
-      "args": [
-        "--stdio",
-        "--yapi-base-url=https://yapi.example.com",
-        "--yapi-token=projectId:token1,projectId2:token2"
-      ]
-    }
-  }
-}
-```
-
-或者通过环境变量传入配置：
-
-```json
-{
-  "mcpServers": {
-    "yapi-auto-mcp": {
-      "command": "yapi-mcp",
-      "args": ["--stdio"],
-      "env": {
-        "YAPI_BASE_URL": "https://yapi.example.com",
-        "YAPI_TOKEN": "projectId:token1,projectId2:token2",
-        "YAPI_CACHE_TTL": "10",
-        "YAPI_LOG_LEVEL": "info"
-      }
-    }
-  }
-}
-```
-
-### 方式四：本地开发模式
+### 方式三：本地开发模式
 
 适合需要修改代码或调试的场景：
 
@@ -237,23 +190,19 @@ Token 格式说明：
 
 **常用操作示例**：
 
-1. **全局搜索接口**：
-
-   > "帮我搜索 'login' 相关的接口"
-
-2. **按条件搜索接口**：
+1. **搜索接口**：
 
    > "帮我找一下用户登录相关的接口"
 
-3. **查看接口详情**：
+2. **查看接口详情**：
 
    > "显示用户注册接口的详细信息"
 
-4. **创建新接口**：
+3. **创建新接口**：
 
    > "帮我创建一个获取用户列表的接口，路径是 /api/users，使用 GET 方法"
 
-5. **更新接口**：
+4. **更新接口**：
    > "更新用户登录接口，添加验证码参数"
 
 ## 高级配置
@@ -298,6 +247,5 @@ YAPI_LOG_LEVEL=info         # 日志级别：debug, info, warn, error, none
 | -------- | --------------------- | ------------------ |
 | 日常使用 | npx + 命令行参数      | 无需安装，配置简单 |
 | 团队共享 | npx + 环境变量        | 配置统一，易于管理 |
-| 稳定使用 | 全局安装 + stdio 模式 | 启动快，无需网络   |
-| 开发调试 | 本地克隆 + SSE 模式   | 便于调试和修改代码 |
-| 企业部署 | 全局安装 + stdio 模式 | 性能更好，更稳定   |
+| 开发调试 | 本地安装 + SSE 模式   | 便于调试和修改代码 |
+| 企业部署 | 本地安装 + stdio 模式 | 性能更好，更稳定   |

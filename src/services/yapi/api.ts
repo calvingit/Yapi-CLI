@@ -459,35 +459,6 @@ export class YApiService {
   }
 
   /**
-   * 全局搜索：使用单个关键字搜索接口名称、路径、标签
-   * @param query 搜索关键字
-   * @param options 可选配置
-   * @returns 包含 total（总数）和 list（接口列表，附带 project_name 和 cat_name）的对象
-   */
-  async searchAnything(query: string, options: {
-    page?: number;
-    limit?: number;
-    maxProjects?: number;
-  } = {}): Promise<{
-    total: number;
-    list: Array<ApiSearchResultItem & { project_name?: string; cat_name?: string }>;
-  }> {
-    const { page = 1, limit = 20, maxProjects = 5 } = options;
-
-    this.logger.debug(`全局搜索关键字: ${query}`);
-
-    // 使用同一关键字同时搜索接口名称、路径和标签
-    return this.searchApis({
-      nameKeyword: query,
-      pathKeyword: query,
-      tagKeyword: query,
-      page,
-      limit,
-      maxProjects
-    });
-  }
-
-  /**
    * 获取分类下的所有接口
    */
   async getCategoryApis(projectId: string, catId: string): Promise<Array<ApiSearchResultItem>> {
