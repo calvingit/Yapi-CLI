@@ -35,4 +35,4 @@ coverage
 # OS
 .DS_Store
 Thumbs.db 
-.yapi-cache
+.yapi-cachepackage-lock.json
