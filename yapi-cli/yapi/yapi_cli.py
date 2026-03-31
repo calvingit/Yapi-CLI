@@ -1,25 +1,70 @@
 """CLI-Anything harness for YApi.
 
-Entry point: cli-anything-yapi
+Entry point: yapi-cli
 """
 
 import cmd
 import importlib.resources as _pkg_resources
 import json
+import os
 import shlex
 import sys
+from pathlib import Path
+from urllib.parse import urlparse
 
 import click
 import requests
 
-from cli_anything.yapi.utils.yapi_backend import YApiBackend
+from .utils.yapi_backend import YApiBackend
 
 __version__ = "0.1.0"
 
+_REPO_SKILL_PATH = Path(__file__).resolve().parents[2] / "skills" / "SKILL.md"
 try:
-    _SKILL_PATH = str(_pkg_resources.files("cli_anything.yapi") / "skills" / "SKILL.md")
+    if _REPO_SKILL_PATH.exists():
+        _SKILL_PATH = str(_REPO_SKILL_PATH)
+    else:
+        _SKILL_PATH = "skills/SKILL.md"
 except Exception:
-    _SKILL_PATH = "cli_anything/yapi/skills/SKILL.md"
+    _SKILL_PATH = "skills/SKILL.md"
+
+
+def _strip_env_quotes(value: str) -> str:
+    if len(value) >= 2 and value[0] == value[-1] and value[0] in {"'", '"'}:
+        return value[1:-1]
+    return value
+
+
+def _load_local_dotenv() -> None:
+    """Best-effort load of .env in current working directory.
+
+    Existing environment variables are preserved.
+    """
+    env_path = Path.cwd() / ".env"
+    if not env_path.exists() or not env_path.is_file():
+        return
+
+    try:
+        for raw_line in env_path.read_text(encoding="utf-8").splitlines():
+            line = raw_line.strip()
+            if not line or line.startswith("#"):
+                continue
+            if line.startswith("export "):
+                line = line[len("export ") :].strip()
+            if "=" not in line:
+                continue
+            key, value = line.split("=", 1)
+            key = key.strip()
+            if not key:
+                continue
+            value = _strip_env_quotes(value.strip())
+            os.environ.setdefault(key, value)
+    except OSError:
+        # Ignore local .env read failures and keep CLI behavior predictable.
+        return
+
+
+_load_local_dotenv()
 
 
 # ---------------------------------------------------------------------------
@@ -29,10 +74,13 @@ except Exception:
 
 def _backend(ctx: click.Context) -> YApiBackend:
     obj = ctx.find_object(dict)
-    return YApiBackend(
-        base_url=obj.get("base_url"),
-        token=obj.get("token"),
-    )
+    try:
+        return YApiBackend(
+            base_url=obj.get("base_url"),
+            token=obj.get("token"),
+        )
+    except ValueError as exc:
+        raise click.ClickException(str(exc))
 
 
 def _use_json(ctx: click.Context) -> bool:
@@ -49,6 +97,27 @@ def _out(ctx: click.Context, data) -> None:
             click.echo(data)
 
 
+def _parse_ids_from_yapi_url(url: str) -> tuple[str | None, str | None]:
+    """Parse project_id and api_id from YApi interface URL.
+
+    Example:
+      http://host/project/908/interface/api/921695 -> ("908", "921695")
+    """
+    try:
+        path_parts = [p for p in urlparse(url).path.split("/") if p]
+    except Exception:
+        return None, None
+
+    project_id = None
+    api_id = None
+    for i, part in enumerate(path_parts):
+        if part == "project" and i + 1 < len(path_parts):
+            project_id = path_parts[i + 1]
+        if part == "api" and i + 1 < len(path_parts):
+            api_id = path_parts[i + 1]
+    return project_id, api_id
+
+
 # ---------------------------------------------------------------------------
 # Root group
 # ---------------------------------------------------------------------------
@@ -56,17 +125,22 @@ def _out(ctx: click.Context, data) -> None:
 
 @click.group(invoke_without_command=True)
 @click.option("--base-url", envvar="YAPI_BASE_URL", default=None, help="YApi base URL.")
-@click.option("--token", envvar="YAPI_TOKEN", default=None, help="YApi token string.")
+@click.option(
+    "--token",
+    envvar="YAPI_TOKEN",
+    default=None,
+    help="YApi full Cookie string (optional if env vars _yapi_token and _yapi_uid are set).",
+)
 @click.option(
     "--json/--no-json",
     "use_json",
     default=False,
     help="Output JSON for machine reading.",
 )
-@click.version_option(version=__version__, prog_name="cli-anything-yapi")
+@click.version_option(version=__version__, prog_name="yapi-cli")
 @click.pass_context
 def cli(ctx: click.Context, base_url, token, use_json):
-    """cli-anything-yapi — query and manage YApi interfaces from the command line.
+    """yapi-cli — query and manage YApi interfaces from the command line.
 
     Run without a subcommand to enter the interactive REPL.
     """
@@ -92,11 +166,20 @@ def api():
 @api.command("search")
 @click.argument("query")
 @click.option("--project", "project_id", default=None, help="Limit search to this project ID.")
+@click.option("--url", "yapi_url", default=None, help="YApi interface URL. Project ID will be parsed automatically.")
+@click.option("--path", "api_path", default=None, help="Optional path filter, e.g. /user/login.")
+@click.option("--page", default=1, show_default=True, help="Page number.")
 @click.option("--limit", default=20, show_default=True, help="Max results per project.")
 @click.pass_context
-def api_search(ctx: click.Context, query: str, project_id, limit: int):
-    """Search APIs by keyword QUERY across all configured projects (or a specific one)."""
+def api_search(ctx: click.Context, query: str, project_id, yapi_url, api_path, page: int, limit: int):
+    """Search APIs by keyword QUERY across discovered projects (or a specific one)."""
     backend = _backend(ctx)
+
+    if not project_id and yapi_url:
+        parsed_project_id, _ = _parse_ids_from_yapi_url(yapi_url)
+        if not parsed_project_id:
+            raise click.ClickException("Failed to parse project ID from --url.")
+        project_id = parsed_project_id
 
     if project_id:
         project_ids = [project_id]
@@ -104,14 +187,14 @@ def api_search(ctx: click.Context, query: str, project_id, limit: int):
         project_ids = backend.configured_project_ids()
         if not project_ids:
             raise click.ClickException(
-                "No project IDs found in YAPI_TOKEN. "
-                "Use --project to specify one, or set YAPI_TOKEN=pid:token."
+                "No accessible projects discovered from Cookie. "
+                "Use --project to specify one, or refresh YAPI_TOKEN Cookie."
             )
 
     results = []
     for pid in project_ids:
         try:
-            data = backend.search_apis(pid, keyword=query, limit=limit)
+            data = backend.search_apis(pid, keyword=query, path=api_path, page=page, limit=limit)
             items = data.get("list", []) if isinstance(data, dict) else data
             for item in items:
                 item.setdefault("_project_id", pid)
@@ -138,13 +221,38 @@ def api_search(ctx: click.Context, query: str, project_id, limit: int):
 
 
 @api.command("get")
-@click.argument("project_id")
-@click.argument("api_id")
+@click.argument("project_id", required=False)
+@click.argument("api_id", required=False)
+@click.option("--url", "yapi_url", default=None, help="YApi interface URL, e.g. /project/{pid}/interface/api/{api_id}.")
 @click.pass_context
-def api_get(ctx: click.Context, project_id: str, api_id: str):
+def api_get(ctx: click.Context, project_id: str | None, api_id: str | None, yapi_url: str | None):
     """Get full details for API_ID in PROJECT_ID."""
+    if yapi_url:
+        parsed_project_id, parsed_api_id = _parse_ids_from_yapi_url(yapi_url)
+        if parsed_project_id:
+            project_id = project_id or parsed_project_id
+        if parsed_api_id:
+            api_id = api_id or parsed_api_id
+
+    if not project_id or not api_id:
+        raise click.ClickException("Provide PROJECT_ID/API_ID or pass --url with a valid YApi interface URL.")
+
     backend = _backend(ctx)
-    data = backend.get_api(project_id, api_id)
+    try:
+        data = backend.get_api(project_id, api_id)
+    except requests.RequestException as exc:
+        raise click.ClickException(f"Network error while fetching API: {exc}")
+    except RuntimeError as exc:
+        msg = str(exc)
+        if "authentication failed" in msg.lower() or "请登录" in msg:
+            raise click.ClickException(
+                "YApi Cookie authentication failed. "
+                "Please refresh YAPI_TOKEN and ensure it includes both _yapi_token and _yapi_uid."
+            )
+        raise click.ClickException(msg)
+    except ValueError as exc:
+        raise click.ClickException(str(exc))
+
     _out(ctx, data)
 
 
@@ -210,35 +318,28 @@ def project_group():
 @project_group.command("list")
 @click.pass_context
 def project_list(ctx: click.Context):
-    """List all projects configured in YAPI_TOKEN."""
+    """List all projects accessible with current Cookie session."""
     backend = _backend(ctx)
-    pids = backend.configured_project_ids()
-    if not pids:
-        click.echo("No projects configured. Set YAPI_TOKEN=projectId:token,... or use --token.")
+    try:
+        projects = backend.discover_projects()
+    except (requests.RequestException, RuntimeError, ValueError) as exc:
+        raise click.ClickException(str(exc))
+
+    if not projects:
+        click.echo("No projects discovered. Refresh YAPI_TOKEN Cookie or specify project ID manually.")
         return
 
     if _use_json(ctx):
-        rows = []
-        for pid in pids:
-            try:
-                info = backend.get_project_info(pid)
-                rows.append(info)
-            except (requests.RequestException, RuntimeError, ValueError) as exc:
-                rows.append({"project_id": pid, "error": str(exc)})
-        click.echo(json.dumps(rows, ensure_ascii=False, indent=2))
+        click.echo(json.dumps(projects, ensure_ascii=False, indent=2))
     else:
         click.echo(f"{'ID':<12} {'Name':<30} {'Description'}")
         click.echo("-" * 70)
-        for pid in pids:
-            try:
-                info = backend.get_project_info(pid)
-                click.echo(
-                    f"{info.get('_id', pid):<12} "
-                    f"{info.get('name', ''):<30} "
-                    f"{info.get('desc', '')}"
-                )
-            except (requests.RequestException, RuntimeError, ValueError) as exc:
-                click.echo(f"{pid:<12} [error: {exc}]")
+        for info in projects:
+            click.echo(
+                f"{info.get('_id', ''):<12} "
+                f"{info.get('name', ''):<30} "
+                f"{info.get('desc', '')}"
+            )
 
 
 # ---------------------------------------------------------------------------
@@ -282,7 +383,7 @@ def category_list(ctx: click.Context, project_id: str):
 
 class _YApiRepl(cmd.Cmd):
     intro = (
-        f"\n  cli-anything-yapi  v{__version__}\n"
+        f"\n  yapi-cli  v{__version__}\n"
         f"  Skill file: {_SKILL_PATH}\n"
         "  Type 'help' for available commands, 'exit' to quit.\n"
     )
@@ -303,7 +404,7 @@ class _YApiRepl(cmd.Cmd):
         try:
             # Build a standalone invocation re-using the same obj context.
             ctx = cli.make_context(
-                "cli-anything-yapi",
+                "yapi-cli",
                 tokens,
                 obj=dict(self._obj),
                 standalone_mode=False,

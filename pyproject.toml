@@ -1,0 +1,21 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "yapi-cli"
+version = "0.1.0"
+description = "YApi CLI"
+readme = "README.md"
+requires-python = ">=3.10"
+dependencies = [
+  "click>=8.0,<9",
+  "requests>=2.28,<3",
+]
+
+[project.scripts]
+yapi_cli = "yapi.yapi_cli:cli"
+
+[tool.setuptools.packages.find]
+where = ["yapi-cli"]
+include = ["yapi*"]
