@@ -1,0 +1,40 @@
+{
+  "skill_name": "yapi-cli",
+  "evals": [
+    {
+      "id": 1,
+      "prompt": "我需要调用 http://dapi.meiyunji.net/project/251/interface/api/49315 这个接口来实现一个用户相关功能。帮我用 yapi CLI 获取这个接口的完整参数文档，我需要知道请求参数（query 参数或 body 参数）和返回的数据结构。请给出精简版本供 Agent 消费。",
+      "expected_output": "Agent 运行 `yapi api get --url <url> --pure` 并展示返回的精简参数文档",
+      "files": [],
+      "assertions": [
+        "使用了 yapi api get 命令",
+        "使用了 --url 参数（而不是手动提取 api_id）",
+        "使用了 --pure 标志以获取精简输出"
+      ]
+    },
+    {
+      "id": 2,
+      "prompt": "我在实现购物车功能，需要调用 YApi 上路径为 /mall/cart/save 的接口。我不知道它的 API ID，帮我先找到这个接口，再获取它的详细参数文档。YApi 项目 ID 是 251。",
+      "expected_output": "Agent 先用 `yapi api list --path /mall/cart/save --project 251` 找到接口 ID，再用 `yapi api get --api_id <id> --pure` 获取详情",
+      "files": [],
+      "assertions": [
+        "先执行了 api list 命令来查找接口",
+        "使用了 --path 过滤路径",
+        "随后执行了 api get 来获取详情（若接口存在）",
+        "最终使用了 --pure 获取精简输出（若找到接口）"
+      ]
+    },
+    {
+      "id": 3,
+      "prompt": "帮我列出 YApi 项目 251 中 category ID 为 56 的所有接口清单，我想做一个整体规划，了解这个分类下有哪些 API 可用。",
+      "expected_output": "Agent 运行 `yapi api list --cat 56 --project 251` 并展示结果table",
+      "files": [],
+      "assertions": [
+        "使用了 api list 命令",
+        "使用了 --cat 参数指定分类",
+        "使用了 --project 参数（--cat 要求提供 --project）",
+        "未错误地省略 --project"
+      ]
+    }
+  ]
+}

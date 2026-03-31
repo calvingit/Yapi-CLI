@@ -133,7 +133,7 @@ class YApiBackend:
     # ------------------------------------------------------------------
 
     def get_api(self, project_id: str, api_id: str) -> dict:
-        """GET /api/interface/get — fetch a single API by ID."""
+        """GET /api/interface/get — fetch a single API by ID (raw data)."""
         data = self._get("/api/interface/get", {"id": api_id})
         return data.get("data", data)
 
@@ -149,8 +149,8 @@ class YApiBackend:
         params: dict = {"project_id": project_id, "page": page, "limit": limit}
         if keyword:
             params["q"] = keyword
-        if path:
-            params["path"] = path
+        # Note: YApi /api/interface/list ignores the `path` param server-side.
+        # Path filtering is performed client-side in the CLI layer instead.
         data = self._get("/api/interface/list", params)
         return data.get("data", data)
 

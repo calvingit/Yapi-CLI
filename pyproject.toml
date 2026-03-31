@@ -14,8 +14,8 @@ dependencies = [
 ]
 
 [project.scripts]
-yapi_cli = "yapi.yapi_cli:cli"
+yapi = "yapi_cli:cli"
 
 [tool.setuptools.packages.find]
-where = ["yapi-cli"]
-include = ["yapi*"]
+where = ["skills/yapi-cli/scripts"]
+include = ["*"]
