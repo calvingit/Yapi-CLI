@@ -1,12 +1,6 @@
 ---
 name: "yapi-cli"
-description: >
-  Query YApi API documentation from the command line — for AI agents and scripts that need to look up
-  interface parameters, request/response schemas, or discover available APIs.
-  Use this skill whenever the user mentions YApi, needs to fetch an API's request params or response
-  structure, wants to list/search interfaces in a project, or provides a YApi interface URL like
-  http://host/project/NNN/interface/api/NNN. Also trigger when the user says "查接口文档"、"YApi
-  上的参数"、"接口入参 / 出参"、"接口 ID" or similar.
+description: "Use when the user needs to query YApi interfaces."
 ---
 
 # yapi-cli
@@ -21,8 +15,12 @@ A CLI tool for querying YApi interfaces from terminal scripts or AI agents.
 
 ## Installation
 
+First, determine `SKILL_PATH` — the directory where this skill is installed:
+- If a `pyproject.toml` exists in the current working directory and this skill is part of the project, `SKILL_PATH` is the current directory.
+- Otherwise, inspect the path of this SKILL.md file itself; its parent directory is `SKILL_PATH`.
+
 ```bash
-uv sync
+uv sync --project "$SKILL_PATH"
 ```
 
 ## Configuration
@@ -50,8 +48,10 @@ export _yapi_uid='1234'
 ## Usage
 
 ```bash
-yapi [OPTIONS] COMMAND [ARGS]...
+uv run --project "$SKILL_PATH" yapi [OPTIONS] COMMAND [ARGS]...
 ```
+
+Command snippets below omit the `uv run --project "$SKILL_PATH"` prefix for readability.
 
 ### Global options
 
@@ -168,4 +168,3 @@ yapi --json api list --project 251 --path /save | jq '.[] | {id: ._id, path, tit
 # Parse res_body JSON Schema inline
 yapi --json api get --api_id 49325 --pure | jq '.res_body | fromjson | .properties'
 ```
-
